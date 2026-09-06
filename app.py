@@ -95,7 +95,7 @@ if submitted and q:
     if len(hasil) > 0:
         # Render tabel dengan header warna cerah pakai HTML
         # Ambil kolom penting saja biar tidak kepotong di HP
-        cols_show = [c for c in df.columns if c in ["NO","KONTRAKTOR","LOKASI","TANGGAL","MUTU","JENIS","STATUS"]][:6]
+        st.dataframe(hasil, use_container_width=True, height=500)
         if len(cols_show) < 3:
             cols_show = list(df.columns[:6])
         
