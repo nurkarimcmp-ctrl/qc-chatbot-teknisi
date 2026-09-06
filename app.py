@@ -34,7 +34,7 @@ if df is not None:
     c2.metric("Overdue", len(df[df.astype(str).apply(lambda x: x.str.contains('OVERDUE', case=False, na=False)).any(axis=1)]))
     c3.metric("Jadwal Hari Ini", len(df[df.astype(str).apply(lambda x: x.str.contains('HARI INI', case=False, na=False)).any(axis=1)]))
 
-    st.subheader("💬 Chatbot QC (Anti Halu)")
+    st.subheader("💬 Chatbot Khusus untuk Teknisi Lab")
     q = st.text_input("Tanya: pilecap / overdue / bukit apit", placeholder="Ketik di sini...")
 
     if q:
