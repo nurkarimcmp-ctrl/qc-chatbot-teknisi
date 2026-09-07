@@ -9,9 +9,9 @@ st.set_page_config(page_title="QC LAB MONITORING PRO - AI", layout="wide", page_
 
 st.markdown("""
 <style>
-    .header { background: linear-gradient(90deg, #0f172a 0%, #1e3a8a 40%, #2563eb 100%); padding: 28px 24px; border-radius: 20px; color: white; margin-bottom: 16px; }
-    .header h1 { margin:0; font-size:32px; font-weight:800; line-height:1.1; }
-    .header p { margin:8px 0 0 0; opacity:0.9; font-size:14px; }
+    .header { background: linear-gradient(90deg, #0f172a 0%, #1e3a8a 40%, #2563eb 100%); padding: 12px 16px; border-radius: 14px; color: white; margin-bottom: 10px; }
+    .header h1 { margin:0; font-size:20px; font-weight:800; line-height:1.1; }
+    .header p { margin:4px 0 0 0; opacity:0.9; font-size:12px; }
     .cards-wrap { display:flex; gap:10px; flex-wrap:nowrap; width:100%; margin-bottom:14px; }
     .card { flex:1; min-width:0; background:white; padding:12px; border-radius:14px; box-shadow:0 2px 12px rgba(0,0,0,0.06); border-left:5px solid; }
     .card-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:8px; }
