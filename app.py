@@ -79,13 +79,13 @@ for m in st.session_state.messages:
 
 query = st.chat_input("Tanya AI: misal 'Semua proyek dengan mutu K250'")
 
-# ===== AI INTENT EXTRACTION - INI KUNCINYA BIAR JADI CHATBOT AI BENERAN =====
+# ===== AI INTENT EXTRACTION =====
 GENERIC_WORDS = {"semua","proyek","project","dengan","mutu","yang","untuk","dan","di","ke","dari","adalah","ada","tampilkan","tampil","cari","carikan","lihat","tolong","data","kontraktor","pt","pt.","cv","tbk","karya","berapa","list","daftar","punya","milik"}
 
 def extract_core_tokens(q):
     q = q.lower()
     tokens = []
-    # 1. Cari mutu beton Kxxx - INI PALING PENTING
+    # 1. Cari mutu beton Kxxx -
     k_matches = re.findall(r'k\s*-?\s*\d+', q)
     for km in k_matches:
         clean = re.sub(r'[^k0-9]', '', km.replace(' ', ''))
