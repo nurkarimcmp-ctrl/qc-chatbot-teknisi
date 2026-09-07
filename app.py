@@ -31,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - RAG Mode • Tanpa sklearn • Anti Error</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - Khusus untuk Teknisi Laboratorium</p></div>', unsafe_allow_html=True)
 
 files = glob.glob("*.xlsx")+glob.glob("*.xls")
 if not files:
@@ -71,7 +71,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("### 🤖 Chat AI Lab - Tanya Pakai Bahasa Alami")
+st.markdown("### 🤖 Chat AI Teknisi Lab - JADWAL PENGUJIAN BENDA UJI")
 st.caption("Contoh: `beton K350 yang telat di Tangerang` / `Istaka Karya overdue` / `K400 Harapan Indah`")
 
 if "messages" not in st.session_state:
