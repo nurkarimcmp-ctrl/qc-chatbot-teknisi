@@ -31,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - Khusus untuk Teknisi Laboratorium</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - RAG Mode • Tanpa sklearn • Anti Error</p></div>', unsafe_allow_html=True)
 
 files = glob.glob("*.xlsx")+glob.glob("*.xls")
 if not files:
@@ -71,7 +71,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("### 🤖 Chat AI Teknisi Lab - JADWAL PENGUJIAN BENDA UJI")
+st.markdown("### 🤖 Chat AI Lab - Tanya Pakai Bahasa Alami")
 st.caption("Contoh: `beton K350 yang telat di Tangerang` / `Istaka Karya overdue` / `K400 Harapan Indah`")
 
 if "messages" not in st.session_state:
@@ -84,15 +84,36 @@ for m in st.session_state.messages:
 query = st.chat_input("Tanya AI: misal 'K350 yang overdue di Tarogong...'")
 
 def ai_search_score(text, q):
-    # AI sederhana tanpa sklearn - pakai fuzzy + keyword
-    q = q.lower()
+    # AI FIX: Prioritas exact phrase, bukan per kata
+    q = q.lower().strip()
+    text = text.lower()
     score = 0
-    for word in q.split():
+    
+    # 1. EXACT PHRASE BONUS TERTINGGI - kalau "istaka karya" ada persis
+    if q in text:
+        score += 100
+    
+    # 2. Semua kata harus ada (AND bukan OR) untuk query 2 kata atau lebih
+    words = [w for w in q.split() if len(w) > 2]  # abaikan kata pendek seperti "di", "yang"
+    if len(words) >= 2:
+        all_present = all(w in text for w in words)
+        if all_present:
+            score += 50
+        else:
+            # kalau tidak semua kata ada, score 0 saja -> tidak tampil
+            # kecuali query cuma 1 kata
+            if len(words) > 1:
+                return 0
+    
+    # 3. Scoring per kata
+    for word in words:
         if word in text:
-            score += 2
-        # fuzzy
-        if SequenceMatcher(None, word, text).ratio() > 0.6:
-            score += 0.5
+            score += 10
+        # fuzzy hanya untuk typo kecil, bukan untuk kata umum
+        elif len(word) > 4:
+            if SequenceMatcher(None, word, text).ratio() > 0.8:
+                score += 1
+    
     return score
 
 def ai_answer(q, filtered_df):
@@ -111,20 +132,36 @@ if query:
     with st.chat_message("user"):
         st.markdown(query)
     
-    # AI RAG tanpa sklearn
+    # AI RAG tanpa sklearn - FIX exact phrase
     scores = df["_ai_text"].apply(lambda t: ai_search_score(t, query))
     # ambil yang score >0
-    idx = scores.sort_values(ascending=False).head(150).index
+    idx = scores.sort_values(ascending=False).head(300).index
     hasil = df.loc[idx]
     hasil = hasil[scores.loc[idx] > 0]
     if len(hasil)==0:
-        # fallback contains
-        ql=query.lower()
-        mask = pd.Series([False]*len(df))
+        # fallback: cari exact phrase dulu, kalau tidak ada baru AND
+        ql=query.lower().strip()
+        # coba exact phrase
+        mask_exact = pd.Series([False]*len(df))
         for col in df.columns:
             if col.startswith("_"): continue
-            mask = mask | df[col].astype(str).str.lower().str.contains(ql, na=False)
-        hasil = df[mask]
+            mask_exact = mask_exact | df[col].astype(str).str.lower().str.contains(ql, na=False)
+        if mask_exact.sum() > 0:
+            hasil = df[mask_exact]
+        else:
+            # fallback AND - semua kata penting harus ada
+            words = [w for w in ql.split() if len(w) > 2]
+            if len(words) >= 2:
+                mask_and = pd.Series([True]*len(df))
+                for w in words:
+                    mask_w = pd.Series([False]*len(df))
+                    for col in df.columns:
+                        if col.startswith("_"): continue
+                        mask_w = mask_w | df[col].astype(str).str.lower().str.contains(w, na=False)
+                    mask_and = mask_and & mask_w
+                hasil = df[mask_and]
+            else:
+                hasil = df[mask_exact]
     
     answer = ai_answer(query, hasil)
     
