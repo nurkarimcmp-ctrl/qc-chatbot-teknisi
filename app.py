@@ -31,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - Khusus buat Teknisi Laboratorium</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - RAG Mode • Tanpa sklearn • Anti Error</p></div>', unsafe_allow_html=True)
 
 files = glob.glob("*.xlsx")+glob.glob("*.xls")
 if not files:
@@ -39,6 +39,34 @@ if not files:
 df = pd.read_excel(files[0])
 df.columns=[str(c).strip() for c in df.columns]
 df = df.fillna("")
+
+# FIX FORMAT TANGGAL - TANGGAL_COR dan TANGGAL_28hari jadi format tanggal saja tanpa 00:00:00
+for col_tgl in ["TANGGAL_COR", "TANGGAL_28HARI", "TANGGAL_28hari", "Tanggal_Cor", "Tanggal_28hari", "TANGGAL COR", "TANGGAL 28HARI"]:
+    if col_tgl in df.columns:
+        try:
+            df[col_tgl] = pd.to_datetime(df[col_tgl], errors='coerce')
+            df[col_tgl] = df[col_tgl].dt.strftime('%d-%m-%Y')
+            df[col_tgl] = df[col_tgl].fillna("")
+        except:
+            pass
+
+# format semua kolom yang mengandung TANGGAL
+for c in df.columns:
+    if "TANGGAL" in str(c).upper() or "TGL" in str(c).upper():
+        try:
+            # coba convert kalau masih datetime
+            if df[c].dtype == 'object':
+                # cek apakah isinya datetime string dengan 00:00:00
+                sample = str(df[c].iloc[0]) if len(df)>0 else ""
+                if "00:00:00" in sample or "-" in sample or "/" in sample:
+                    converted = pd.to_datetime(df[c], errors='coerce')
+                    # hanya jika berhasil convert jadi tanggal
+                    if converted.notna().sum() > len(df)*0.5:
+                        df[c] = converted.dt.strftime('%d-%m-%Y')
+                        df[c] = df[c].fillna("")
+        except:
+            pass
+
 total=len(df)
 df["_ai_text"] = df.apply(lambda r: " ".join([str(r[c]) for c in df.columns if not c.startswith("_")]).lower(), axis=1)
 
@@ -50,7 +78,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("### 🤖 Chat AI Teknisi Lab - Jadwal Pengujian benda uji")
+st.markdown("### 🤖 Chat AI Lab - Tanya Pakai Bahasa Alami")
 st.caption("Contoh: `beton K350 yang telat di Tangerang` / `Istaka Karya overdue` / `K400 Harapan Indah`")
 
 if "messages" not in st.session_state:
