@@ -40,32 +40,32 @@ df = pd.read_excel(files[0])
 df.columns=[str(c).strip() for c in df.columns]
 df = df.fillna("")
 
-# FIX FORMAT TANGGAL - TANGGAL_COR dan TANGGAL_28hari jadi format tanggal saja tanpa 00:00:00
-for col_tgl in ["TANGGAL_COR", "TANGGAL_28HARI", "TANGGAL_28hari", "Tanggal_Cor", "Tanggal_28hari", "TANGGAL COR", "TANGGAL 28HARI"]:
-    if col_tgl in df.columns:
-        try:
-            df[col_tgl] = pd.to_datetime(df[col_tgl], errors='coerce')
-            df[col_tgl] = df[col_tgl].dt.strftime('%d-%m-%Y')
-            df[col_tgl] = df[col_tgl].fillna("")
-        except:
-            pass
-
-# format semua kolom yang mengandung TANGGAL
+# FIX FORMAT TANGGAL SUPER AGRESIF - Hilangkan 00:00:00 di kolom TGL_28HARI, TANGGAL_COR, dll
+import datetime
 for c in df.columns:
-    if "TANGGAL" in str(c).upper() or "TGL" in str(c).upper():
-        try:
-            # coba convert kalau masih datetime
-            if df[c].dtype == 'object':
-                # cek apakah isinya datetime string dengan 00:00:00
-                sample = str(df[c].iloc[0]) if len(df)>0 else ""
-                if "00:00:00" in sample or "-" in sample or "/" in sample:
-                    converted = pd.to_datetime(df[c], errors='coerce')
-                    # hanya jika berhasil convert jadi tanggal
-                    if converted.notna().sum() > len(df)*0.5:
-                        df[c] = converted.dt.strftime('%d-%m-%Y')
-                        df[c] = df[c].fillna("")
-        except:
-            pass
+    # kalau kolom datetime beneran
+    try:
+        if pd.api.types.is_datetime64_any_dtype(df[c]):
+            df[c] = pd.to_datetime(df[c], errors='coerce').dt.strftime('%d-%m-%Y')
+            continue
+    except:
+        pass
+    # kalau kolom object tapi isinya datetime string dengan 00:00:00
+    try:
+        # coba convert, kalau 50% berhasil berarti ini kolom tanggal
+        converted = pd.to_datetime(df[c], errors='coerce')
+        if converted.notna().sum() > len(df)*0.3:
+            df[c] = converted.dt.strftime('%d-%m-%Y')
+            df[c] = df[c].fillna("")
+    except:
+        pass
+    # bersihkan sisa 00:00:00 secara paksa via string
+    try:
+        df[c] = df[c].astype(str).str.replace(' 00:00:00','', regex=False).str.replace('00:00:00','', regex=False).str.replace(' 00:00','', regex=False)
+        # kalau jadi 'NaT' atau 'nan' atau 'None' jadikan kosong
+        df[c] = df[c].replace(['NaT','nan','None','nat'], '')
+    except:
+        pass
 
 total=len(df)
 df["_ai_text"] = df.apply(lambda r: " ".join([str(r[c]) for c in df.columns if not c.startswith("_")]).lower(), axis=1)
