@@ -31,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - RAG Mode • Tanpa sklearn • Anti Error</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - Intent Extraction • Anti Error</p></div>', unsafe_allow_html=True)
 
 files = glob.glob("*.xlsx")+glob.glob("*.xls")
 if not files:
@@ -40,20 +40,16 @@ df = pd.read_excel(files[0])
 df.columns=[str(c).strip() for c in df.columns]
 df = df.fillna("")
 
-# FIX FORMAT TANGGAL - HANYA kolom TGL / TANGGAL saja, jangan sentuh JUMLAH_BU / UMUR_HARI
+# FIX FORMAT TANGGAL - HANYA kolom TGL / TANGGAL
 for c in df.columns:
     upper = str(c).upper()
-    # HANYA proses kolom yang namanya mengandung TGL atau TANGGAL
     if "TGL" in upper or "TANGGAL" in upper or "DATE" in upper:
         try:
-            # convert ke datetime dulu
             converted = pd.to_datetime(df[c], errors='coerce')
-            # hanya jika memang ada tanggal yang valid > 80%
             if converted.notna().sum() > len(df)*0.5:
                 df[c] = converted.dt.strftime('%d-%m-%Y')
         except:
             pass
-        # bersihkan paksa sisa jam
         try:
             df[c] = df[c].astype(str).str.replace(' 00:00:00','', regex=False).str.replace('00:00:00','', regex=False)
             df[c] = df[c].replace(['NaT','nan','None','nat','NaN'], '')
@@ -72,7 +68,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.markdown("### 🤖 Chat AI Lab - Tanya Pakai Bahasa Alami")
-st.caption("Contoh: `beton K350 yang telat di Tangerang` / `Istaka Karya overdue` / `K400 Harapan Indah`")
+st.caption("Contoh: `beton K350 yang telat` / `Semua proyek dengan mutu K250` / `Istaka Karya overdue`")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -81,93 +77,139 @@ for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-query = st.chat_input("Tanya AI: misal 'K350 yang overdue di Tarogong...'")
+query = st.chat_input("Tanya AI: misal 'Semua proyek dengan mutu K250'")
+
+# ===== AI INTENT EXTRACTION - INI KUNCINYA BIAR JADI CHATBOT AI BENERAN =====
+GENERIC_WORDS = {"semua","proyek","project","dengan","mutu","yang","untuk","dan","di","ke","dari","adalah","ada","tampilkan","tampil","cari","carikan","lihat","tolong","data","kontraktor","pt","pt.","cv","tbk","karya","berapa","list","daftar","punya","milik"}
+
+def extract_core_tokens(q):
+    q = q.lower()
+    tokens = []
+    # 1. Cari mutu beton Kxxx - INI PALING PENTING
+    k_matches = re.findall(r'k\s*-?\s*\d+', q)
+    for km in k_matches:
+        clean = re.sub(r'[^k0-9]', '', km.replace(' ', ''))
+        # jadi k250
+        if clean.startswith('k'):
+            tokens.append(clean)
+    # 2. Cari angka mutu lain seperti 250, 350 jika didahului kata mutu
+    if "mutu" in q and not tokens:
+        nums = re.findall(r'\b(\d{3,4})\b', q)
+        for n in nums:
+            tokens.append(f"k{n}")
+    
+    # 3. Cari nama kontraktor penting - istaka, hutama, waskita, dll
+    # ambil kata yang bukan generic dan panjang >3
+    words = [w.strip(".,()") for w in q.split()]
+    for w in words:
+        wl = w.lower()
+        if wl in GENERIC_WORDS:
+            continue
+        if len(wl) < 3:
+            continue
+        # kalau sudah ada di tokens Kxxx jangan duplikat
+        if wl.startswith('k') and wl[1:].isdigit():
+            continue
+        # kata penting seperti istaka, hutama, tangerang, lokasi
+        if wl not in tokens:
+            tokens.append(wl)
+    
+    # Kalau setelah filter kosong, ambil kata terpanjang sebagai fallback
+    if not tokens:
+        words2 = [w for w in q.split() if len(w) > 2]
+        if words2:
+            tokens = [words2[-1].lower()]
+    return tokens
 
 def ai_search_score(text, q):
-    # AI FIX: Prioritas exact phrase, bukan per kata
-    q = q.lower().strip()
+    q_lower = q.lower().strip()
     text = text.lower()
     score = 0
     
-    # 1. EXACT PHRASE BONUS TERTINGGI - kalau "istaka karya" ada persis
-    if q in text:
-        score += 100
+    core_tokens = extract_core_tokens(q_lower)
+    if not core_tokens:
+        return 0
     
-    # 2. Semua kata harus ada (AND bukan OR) untuk query 2 kata atau lebih
-    words = [w for w in q.split() if len(w) > 2]  # abaikan kata pendek seperti "di", "yang"
-    if len(words) >= 2:
-        all_present = all(w in text for w in words)
-        if all_present:
-            score += 50
-        else:
-            # kalau tidak semua kata ada, score 0 saja -> tidak tampil
-            # kecuali query cuma 1 kata
-            if len(words) > 1:
-                return 0
+    # Jika ada token Kxxx, itu WAJIB ada
+    k_tokens = [t for t in core_tokens if t.startswith('k') and t[1:].isdigit()]
+    other_tokens = [t for t in core_tokens if t not in k_tokens]
     
-    # 3. Scoring per kata
-    for word in words:
-        if word in text:
-            score += 10
-        # fuzzy hanya untuk typo kecil, bukan untuk kata umum
-        elif len(word) > 4:
-            if SequenceMatcher(None, word, text).ratio() > 0.8:
-                score += 1
+    # Cek K tokens dulu
+    if k_tokens:
+        # semua K harus ada (biasanya cuma 1)
+        for kt in k_tokens:
+            # toleransi: k250 bisa tertulis "K-250" atau "K 250" atau "K250"
+            pattern = kt[1:]  # 250
+            if kt in text or pattern in text or f"k-{pattern}" in text or f"k {pattern}" in text:
+                score += 50
+            else:
+                return 0  # K tidak cocok -> gagal
+    
+    # Cek token lain (istaka, hutama, dll)
+    if other_tokens:
+        # untuk kontraktor, semua token penting harus ada
+        # tapi kalau tokennya cuma "karya" yang generic, sudah dihapus
+        for ot in other_tokens:
+            if ot in text:
+                score += 20
+            else:
+                # kalau cari istaka karya, istaka wajib ada
+                if ot in ["istaka","hutama","waskita","adhi","wika","pp","wasita"]:
+                    return 0
+    
+    # Bonus exact phrase
+    if q_lower in text:
+        score += 30
     
     return score
 
 def ai_answer(q, filtered_df):
     n=len(filtered_df)
     if n==0:
-        return f"⚠️ Tidak menemukan data untuk **{q}**. Coba kata kunci lain seperti K350, K400, nama kontraktor, atau lokasi."
+        return f"⚠️ Tidak menemukan data untuk **{q}**. Coba kata kunci lain seperti K250, K350, K400, Istaka Karya, dll."
     try:
         top_kont = filtered_df.iloc[:,1].value_counts().head(2).to_dict() if len(filtered_df.columns)>1 else {}
         top_info = ", ".join([f"{k} ({v})" for k,v in top_kont.items()])
     except:
         top_info="-"
-    return f"✅ **AI menemukan {n} data** untuk **'{q}'** (pencarian semantic AI).\n\nKontraktor dominan: {top_info}.\n\nSemua kolom lengkap ada di tabel bawah - bisa scroll kesamping."
+    cores = extract_core_tokens(q)
+    return f"✅ **AI menemukan {n} data** untuk **'{q}'**\n\nKata kunci inti yang dipahami AI: **{', '.join(cores)}**\n\nKontraktor dominan: {top_info}."
 
 if query:
     st.session_state.messages.append({"role":"user","content":query})
     with st.chat_message("user"):
         st.markdown(query)
     
-    # AI RAG tanpa sklearn - FIX exact phrase
+    core = extract_core_tokens(query)
     scores = df["_ai_text"].apply(lambda t: ai_search_score(t, query))
-    # ambil yang score >0
     idx = scores.sort_values(ascending=False).head(300).index
     hasil = df.loc[idx]
     hasil = hasil[scores.loc[idx] > 0]
-    if len(hasil)==0:
-        # fallback: cari exact phrase dulu, kalau tidak ada baru AND
-        ql=query.lower().strip()
-        # coba exact phrase
-        mask_exact = pd.Series([False]*len(df))
-        for col in df.columns:
-            if col.startswith("_"): continue
-            mask_exact = mask_exact | df[col].astype(str).str.lower().str.contains(ql, na=False)
-        if mask_exact.sum() > 0:
-            hasil = df[mask_exact]
-        else:
-            # fallback AND - semua kata penting harus ada
-            words = [w for w in ql.split() if len(w) > 2]
-            if len(words) >= 2:
-                mask_and = pd.Series([True]*len(df))
-                for w in words:
-                    mask_w = pd.Series([False]*len(df))
-                    for col in df.columns:
-                        if col.startswith("_"): continue
-                        mask_w = mask_w | df[col].astype(str).str.lower().str.contains(w, na=False)
-                    mask_and = mask_and & mask_w
-                hasil = df[mask_and]
+    
+    # Fallback super pintar: kalau score 0, coba cari pakai core tokens langsung
+    if len(hasil)==0 and core:
+        mask = pd.Series([True]*len(df))
+        for token in core:
+            if token.startswith('k'):
+                num = token[1:]
+                mask_token = pd.Series([False]*len(df))
+                for col in df.columns:
+                    if col.startswith("_"): continue
+                    mask_token = mask_token | df[col].astype(str).str.lower().str.contains(token, na=False) | df[col].astype(str).str.lower().str.contains(num, na=False)
+                mask = mask & mask_token
             else:
-                hasil = df[mask_exact]
+                mask_token = pd.Series([False]*len(df))
+                for col in df.columns:
+                    if col.startswith("_"): continue
+                    mask_token = mask_token | df[col].astype(str).str.lower().str.contains(token, na=False)
+                mask = mask & mask_token
+        hasil = df[mask]
     
     answer = ai_answer(query, hasil)
     
     with st.chat_message("assistant"):
         st.markdown(answer)
-        st.markdown(f'<div class="badge">🤖 AI: Ketemu {len(hasil)} data untuk <b>{query}</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="badge">🤖 AI Intent: {", ".join(core)} • Ketemu {len(hasil)} data</div>', unsafe_allow_html=True)
         cols_show = [c for c in df.columns if not c.startswith("_")]
         html = '<div class="table-wrap"><div style="overflow-x:auto;"><table class="qc-table"><thead><tr>'
         for c in cols_show:
@@ -180,7 +222,7 @@ if query:
             html += '</tr>'
         html += '</tbody></table></div></div>'
         st.markdown(html, unsafe_allow_html=True)
-        st.caption(f"Menampilkan {min(100,len(hasil))} dari {len(hasil)} • Semua kolom ada • AI Active (No sklearn)")
+        st.caption(f"Menampilkan {min(100,len(hasil))} dari {len(hasil)}")
     
     st.session_state.messages.append({"role":"assistant","content":answer})
 
