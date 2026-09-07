@@ -40,32 +40,25 @@ df = pd.read_excel(files[0])
 df.columns=[str(c).strip() for c in df.columns]
 df = df.fillna("")
 
-# FIX FORMAT TANGGAL SUPER AGRESIF - Hilangkan 00:00:00 di kolom TGL_28HARI, TANGGAL_COR, dll
-import datetime
+# FIX FORMAT TANGGAL - HANYA kolom TGL / TANGGAL saja, jangan sentuh JUMLAH_BU / UMUR_HARI
 for c in df.columns:
-    # kalau kolom datetime beneran
-    try:
-        if pd.api.types.is_datetime64_any_dtype(df[c]):
-            df[c] = pd.to_datetime(df[c], errors='coerce').dt.strftime('%d-%m-%Y')
-            continue
-    except:
-        pass
-    # kalau kolom object tapi isinya datetime string dengan 00:00:00
-    try:
-        # coba convert, kalau 50% berhasil berarti ini kolom tanggal
-        converted = pd.to_datetime(df[c], errors='coerce')
-        if converted.notna().sum() > len(df)*0.3:
-            df[c] = converted.dt.strftime('%d-%m-%Y')
-            df[c] = df[c].fillna("")
-    except:
-        pass
-    # bersihkan sisa 00:00:00 secara paksa via string
-    try:
-        df[c] = df[c].astype(str).str.replace(' 00:00:00','', regex=False).str.replace('00:00:00','', regex=False).str.replace(' 00:00','', regex=False)
-        # kalau jadi 'NaT' atau 'nan' atau 'None' jadikan kosong
-        df[c] = df[c].replace(['NaT','nan','None','nat'], '')
-    except:
-        pass
+    upper = str(c).upper()
+    # HANYA proses kolom yang namanya mengandung TGL atau TANGGAL
+    if "TGL" in upper or "TANGGAL" in upper or "DATE" in upper:
+        try:
+            # convert ke datetime dulu
+            converted = pd.to_datetime(df[c], errors='coerce')
+            # hanya jika memang ada tanggal yang valid > 80%
+            if converted.notna().sum() > len(df)*0.5:
+                df[c] = converted.dt.strftime('%d-%m-%Y')
+        except:
+            pass
+        # bersihkan paksa sisa jam
+        try:
+            df[c] = df[c].astype(str).str.replace(' 00:00:00','', regex=False).str.replace('00:00:00','', regex=False)
+            df[c] = df[c].replace(['NaT','nan','None','nat','NaN'], '')
+        except:
+            pass
 
 total=len(df)
 df["_ai_text"] = df.apply(lambda r: " ".join([str(r[c]) for c in df.columns if not c.startswith("_")]).lower(), axis=1)
