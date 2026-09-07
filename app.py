@@ -50,7 +50,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("### 🤖 Chat AI Lab - Tanya Pakai Bahasa Alami")
+st.markdown("### 🤖 Chat AI Teknisi Lab - Jadwal Pengujian benda uji")
 st.caption("Contoh: `beton K350 yang telat di Tangerang` / `Istaka Karya overdue` / `K400 Harapan Indah`")
 
 if "messages" not in st.session_state:
