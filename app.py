@@ -31,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - RAG Mode • Tanpa sklearn • Anti Error</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header"><h1>🧪 QC LAB<br>MONITORING PRO</h1><p>🤖 Chatbot AI - Khusus buat Teknisi Laboratorium</p></div>', unsafe_allow_html=True)
 
 files = glob.glob("*.xlsx")+glob.glob("*.xls")
 if not files:
